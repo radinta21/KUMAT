@@ -92,7 +92,7 @@ $('#top').innerHTML=`<div class="bk" onclick="go('dash')">‹</div><div><h2>${TT
 $('#main').innerHTML=VIEWS[v]().replace(/^<h2>.*?<\/h2>/,'');if(v==='scan')startScan();scrollTo(0,0)}
 const VIEWS={
 home(){return`<div class="hm"><div><div class="lg">🛠</div><h1>KUMAT</h1><p style="font-size:18px;margin:0 0 4px">Keluar Masuk Tools</p><p style="opacity:.85;margin:0 0 28px">Tools Aman · Kerja Lancar · Jaringan Terjaga</p><button style="background:#fff;color:var(--pr)" onclick="go('dash')">Masuk</button><button class="o" onclick="go('scan')">▦ Scan Barcode</button><p style="text-align:center;opacity:.85;margin-top:26px"><b style="font-size:20px">Biznet</b><br>Branch Campang Raya</p></div></div>`},
-scan(){return`<div class="sc"><div class="vw"><video id="cam" playsinline webkit-playsinline muted autoplay></video><div class="fr"></div></div><p class="mu">Scan QR alat untuk melihat kondisi &amp; riwayat, lalu langsung <b>Gunakan</b> atau <b>Kembalikan</b>.</p><div style="display:flex;gap:8px"><input id="mi" placeholder="KUM-OTDR-001"><button class="o" style="white-space:nowrap" onclick="found($('#mi').value)">Input Manual</button></div><button class="o" style="margin-top:8px;width:100%" onclick="pickQr('scan')">🖼 Foto QR (jika kamera langsung tidak jalan)</button></div>`},
+scan(){return`<div class="sc"><div class="vw"><video id="cam" playsinline webkit-playsinline muted autoplay></video><div class="fr"></div></div><p class="mu">Scan QR alat untuk melihat kondisi &amp; riwayat, lalu langsung <b>Gunakan</b> atau <b>Kembalikan</b>.</p><div style="display:flex;gap:8px"><input id="mi" placeholder="KUM-OTDR-001"><button class="o" style="white-space:nowrap" onclick="found($('#mi').value)">Input Manual</button></div><div style="display:flex;gap:8px;margin-top:8px"><button style="flex:1" onclick="snapRead()">📸 Baca sekarang</button><button class="o" style="flex:1" onclick="pickQr('scan')">🖼 Foto QR</button></div></div>`},
 dash(){const tl=D.tools.filter(t=>t.cat==='tool'&&t.st!=='none'),sf=D.tools.filter(t=>t.cat==='safety'&&t.st!=='none'),A=act(),c=k=>D.tools.filter(t=>t.st===k).length,tot=D.tools.filter(t=>t.st!=='none').length;let a=0;
 const cg=Object.keys(ST).filter(k=>c(k)).map(k=>{const s=a;a+=c(k)/tot*100;return`${ST[k][1]} ${s}% ${a}%`}).join(',')||'#e5ebf5 0 100%';
 const today=D.tx.filter(x=>new Date(x.start).toDateString()===new Date().toDateString()||!x.end).sort((a,b)=>b.start-a.start);
@@ -159,30 +159,49 @@ const rw=t=>`<div class="row" onclick="det('${t.id}')">${th(t)}<div><b>${esc(t.n
 const tlist=()=>D.tools.filter(t=>t.cat==='tool'&&(t.name+t.id).toLowerCase().includes(q.toLowerCase())).map(rw).join('')||'<span class="mu">Tidak ditemukan</span>';
 function stopScan(){clearInterval(scanT);if(stream){stream.getTracks().forEach(t=>t.stop());stream=null}}
 let CAM={last:'',at:0};
-let JQP=null;
+let JQP=null,ZXP=null;
 function needJsQR(){if(window.jsQR)return Promise.resolve(true);if(JQP)return JQP;return JQP=new Promise(ok=>{const e=document.createElement('script');e.src='https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js';e.onload=()=>ok(!!window.jsQR);e.onerror=()=>{JQP=null;ok(false)};document.head.appendChild(e)})}
+function needZX(){if(window.ZXing)return Promise.resolve(true);if(ZXP)return ZXP;return ZXP=new Promise(ok=>{const e=document.createElement('script');e.src='https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js';e.onload=()=>ok(!!window.ZXing);e.onerror=()=>{ZXP=null;ok(false)};document.head.appendChild(e)})}
+function zxDecode(cv){if(!window.ZXing)return'';try{const L=new ZXing.HTMLCanvasElementLuminanceSource(cv),B=new ZXing.BinaryBitmap(new ZXing.HybridBinarizer(L)),h=new Map();h.set(ZXing.DecodeHintType.TRY_HARDER,true);h.set(ZXing.DecodeHintType.POSSIBLE_FORMATS,[ZXing.BarcodeFormat.QR_CODE]);return new ZXing.QRCodeReader().decode(B,h).getText()||''}catch(e){return''}}
 const camErr=e=>{const n=e&&e.name||'';if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia)return'Kamera tidak tersedia di browser ini. Buka KUMAT di Safari / Chrome (bukan dari dalam WhatsApp atau aplikasi lain), atau pakai tombol Foto QR.';if(n==='NotAllowedError'||n==='SecurityError')return'Izin kamera ditolak. iPhone: Pengaturan > Safari > Kamera > Izinkan, lalu muat ulang. Atau pakai tombol Foto QR.';if(n==='NotFoundError'||n==='OverconstrainedError')return'Kamera tidak ditemukan. Gunakan tombol Foto QR atau input manual.';if(n==='NotReadableError')return'Kamera sedang dipakai aplikasi lain. Tutup aplikasi itu lalu coba lagi.';return'Kamera tidak bisa diakses, gunakan tombol Foto QR atau input manual'};
+/* Beberapa tahap baca (resolusi penuh, diperkecil, potong tengah+perbesar, ZXing) agar QR kecil / buram tetap terbaca */
+const PASS=[{w:1280,c:0},{w:640,c:0},{w:1000,c:.6},{w:1280,c:0,z:1},{w:1000,c:.5,z:1}];
+function passRead(src,sw0,sh0,ps,cv,cx){let sx=0,sy=0,sw=sw0,sh=sh0;if(ps.c){sw=Math.round(sw0*ps.c);sh=Math.round(sh0*ps.c);sx=Math.round((sw0-sw)/2);sy=Math.round((sh0-sh)/2)}
+const k=Math.min(ps.c?2:1,ps.w/sw);cv.width=Math.max(1,Math.round(sw*k));cv.height=Math.max(1,Math.round(sh*k));cx.imageSmoothingEnabled=true;cx.drawImage(src,sx,sy,sw,sh,0,0,cv.width,cv.height);
+let v='';if(window.jsQR){const r=jsQR(cx.getImageData(0,0,cv.width,cv.height).data,cv.width,cv.height,{inversionAttempts:'attemptBoth'});v=r&&r.data||''}
+if(!v&&ps.z)v=zxDecode(cv);return v}
+let CAMV=null;
+function camNote(v,t){let n=v.closest('.vw');if(!n)return;n=n.parentElement.querySelector('.cst');if(!n){n=document.createElement('div');n.className='cst mu';n.style.cssText='margin:6px 0;font-size:12px';v.closest('.vw').after(n)}n.textContent=t}
 async function camStart(vid,onCode){stopScan();const v=document.getElementById(vid);if(!v)return;
 v.setAttribute('playsinline','');v.setAttribute('webkit-playsinline','');v.setAttribute('muted','');v.muted=true;v.playsInline=true;v.autoplay=true;
 try{if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia)throw new Error('nomd');
-try{stream=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720}}})}catch(e1){if(e1&&e1.name==='NotAllowedError')throw e1;stream=await navigator.mediaDevices.getUserMedia({audio:false,video:true})}
+try{stream=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:{ideal:'environment'},width:{ideal:1920},height:{ideal:1080}}})}catch(e1){if(e1&&e1.name==='NotAllowedError')throw e1;stream=await navigator.mediaDevices.getUserMedia({audio:false,video:true})}
 if(!v.isConnected){stopScan();return}
 v.srcObject=stream;try{await v.play()}catch(pe){if(pe&&pe.name==='NotAllowedError')throw pe}}catch(e){stopScan();return toast(camErr(e))}
+try{const tr=stream.getVideoTracks()[0],cap=tr.getCapabilities&&tr.getCapabilities();if(cap&&cap.focusMode&&cap.focusMode.includes('continuous'))await tr.applyConstraints({advanced:[{focusMode:'continuous'}]})}catch(e){}
+CAMV={v,onCode};
 const bd='BarcodeDetector' in window?(()=>{try{return new BarcodeDetector({formats:['qr_code','code_128']})}catch(e){return null}})():null,cv=document.createElement('canvas'),cx=cv.getContext('2d',{willReadFrequently:true});
-if(!bd&&!await needJsQR())toast('Pemindai otomatis gagal dimuat (cek internet). Gunakan tombol Foto QR atau input manual');
-let bz=false;
-scanT=setInterval(async()=>{if(bz||!v.videoWidth||v.paused&&v.readyState<2)return;bz=true;let val='';try{if(bd){const r=await bd.detect(v);val=r[0]&&r[0].rawValue}if(!val&&window.jsQR){const s=Math.min(1,640/v.videoWidth);cv.width=Math.round(v.videoWidth*s);cv.height=Math.round(v.videoHeight*s);cx.drawImage(v,0,0,cv.width,cv.height);const r=jsQR(cx.getImageData(0,0,cv.width,cv.height).data,cv.width,cv.height,{inversionAttempts:'attemptBoth'});val=r&&r.data}}catch(e){}bz=false;
-if(!val)return;const n=Date.now();if(val===CAM.last&&n-CAM.at<2500){CAM.at=n;return}CAM={last:val,at:n};if(navigator.vibrate)navigator.vibrate(60);onCode(String(val).trim().toUpperCase())},300)}
+if(!bd){if(!await needJsQR())toast('Pemindai otomatis gagal dimuat (cek internet). Gunakan tombol Foto QR atau input manual');needZX()}
+camNote(v,'Kamera aktif, mencari QR… (jarak ±15–25 cm)');
+let bz=false,k=0;const t0=Date.now();
+scanT=setInterval(async()=>{if(bz||!v.videoWidth||v.readyState<2)return;bz=true;let val='';try{if(bd){const r=await bd.detect(v);val=r[0]&&r[0].rawValue||''}if(!val)val=passRead(v,v.videoWidth,v.videoHeight,PASS[k++%PASS.length],cv,cx)}catch(e){}bz=false;
+if(!val){if(Date.now()-t0>7000)camNote(v,'Belum terbaca. Dekatkan/jauhkan kamera sedikit, pastikan QR terang & tidak blur. Atau tekan 📸 Baca sekarang / 🖼 Foto QR.');return}
+const n=Date.now();if(val===CAM.last&&n-CAM.at<2500){CAM.at=n;return}CAM={last:val,at:n};if(navigator.vibrate)navigator.vibrate(60);camNote(v,'Terbaca: '+val);onCode(String(val).trim().toUpperCase())},250)}
+/* Tombol "Baca sekarang": ambil frame saat ini & coba semua tahap, selalu beri respons */
+async function snapRead(){if(!CAMV||!CAMV.v.videoWidth)return toast('Kamera belum aktif');const{v,onCode}=CAMV;toast('Membaca…');await needJsQR();await needZX();const cv=document.createElement('canvas'),cx=cv.getContext('2d',{willReadFrequently:true});let val='';
+try{if('BarcodeDetector' in window){try{const r=await new BarcodeDetector({formats:['qr_code','code_128']}).detect(v);val=r[0]&&r[0].rawValue||''}catch(e){}}
+for(const ps of [{w:1280,c:0,z:1},{w:640,c:0},{w:1000,c:.6,z:1},{w:1000,c:.4,z:1},{w:1500,c:.75,z:1}]){if(val)break;val=passRead(v,v.videoWidth,v.videoHeight,ps,cv,cx)}}catch(e){}
+if(!val)return toast('QR belum terbaca. Dekatkan kamera, atur jarak & cahaya, lalu coba lagi.');if(navigator.vibrate)navigator.vibrate(60);onCode(String(val).trim().toUpperCase())}
 /* Cadangan: foto QR dari kamera/galeri (jalan di semua iPhone walau kamera langsung bermasalah) */
 async function decodeQrFile(f){const url=URL.createObjectURL(f);try{const img=await new Promise((ok,no)=>{const i=new Image();i.onload=()=>ok(i);i.onerror=()=>no(new Error('img'));i.src=url});
-let bd=null;if('BarcodeDetector' in window){try{bd=new BarcodeDetector({formats:['qr_code','code_128']})}catch(e){}}
-if(bd){try{const r=await bd.detect(img);if(r[0]&&r[0].rawValue)return r[0].rawValue}catch(e){}}
-if(!await needJsQR())throw new Error('lib');
-for(const m of [1000,1600,600,2200]){const sc=Math.min(1,m/Math.max(img.width,img.height)),c=document.createElement('canvas');c.width=Math.round(img.width*sc);c.height=Math.round(img.height*sc);const x=c.getContext('2d',{willReadFrequently:true});x.drawImage(img,0,0,c.width,c.height);const r=jsQR(x.getImageData(0,0,c.width,c.height).data,c.width,c.height,{inversionAttempts:'attemptBoth'});if(r&&r.data)return r.data}
+if('BarcodeDetector' in window){try{const r=await new BarcodeDetector({formats:['qr_code','code_128']}).detect(img);if(r[0]&&r[0].rawValue)return r[0].rawValue}catch(e){}}
+if(!await needJsQR())throw new Error('lib');await needZX();
+const cv=document.createElement('canvas'),cx=cv.getContext('2d',{willReadFrequently:true});
+for(const ps of [{w:1000,c:0,z:1},{w:1600,c:0,z:1},{w:600,c:0},{w:2200,c:0},{w:1200,c:.6,z:1}]){const v=passRead(img,img.width,img.height,ps,cv,cx);if(v)return v}
 return''}finally{URL.revokeObjectURL(url)}}
 function pickQr(kind){const i=document.createElement('input');i.type='file';i.accept='image/*';i.setAttribute('capture','environment');i.onchange=async()=>{const f=i.files&&i.files[0];if(!f)return;toast('Membaca QR…');try{const v=await decodeQrFile(f);if(!v)return toast('QR tidak terbaca. Dekatkan, pastikan terang & tidak buram, lalu coba lagi.');const id=String(v).trim().toUpperCase();if(kind==='use')useScan(id);else if(kind==='ret')retFind(id);else found(id)}catch(e){toast(e.message==='lib'?'Pemindai gagal dimuat (cek internet)':'Foto tidak bisa dibaca')}};i.click()}
 function startScan(){return camStart('cam',found)}
-const camHtml=id=>`<div class="vw" style="margin-top:10px"><video id="${id}" playsinline webkit-playsinline muted autoplay style="height:260px"></video><div class="fr"></div></div><p class="mu">Arahkan kamera ke QR alat.</p><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="o" onclick="pickQr('${id==='cam2'?'use':'ret'}')">🖼 Foto QR</button><button class="o" onclick="camClose()">✕ Tutup kamera</button></div>`;
+const camHtml=id=>`<div class="vw" style="margin-top:10px"><video id="${id}" playsinline webkit-playsinline muted autoplay style="height:260px"></video><div class="fr"></div></div><p class="mu">Arahkan kamera ke QR alat.</p><div style="display:flex;gap:8px;flex-wrap:wrap"><button onclick="snapRead()">📸 Baca sekarang</button><button class="o" onclick="pickQr('${id==='cam2'?'use':'ret'}')">🖼 Foto QR</button><button class="o" onclick="camClose()">✕ Tutup kamera</button></div>`;
 function camClose(){stopScan();['cph','rph'].forEach(i=>{const e=$('#'+i);if(e)e.innerHTML=''})}
 
 /* --- Mode 1: halaman Scan = cek kondisi + riwayat + aksi cepat --- */
