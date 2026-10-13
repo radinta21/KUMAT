@@ -11,6 +11,7 @@ aside a{display:flex;gap:12px;align-items:center;padding:11px 12px;border-radius
 #w{min-width:0}.top{display:flex;align-items:center;gap:12px;padding:20px 24px 4px}.top h2{margin:0;font-size:24px}.top .sub{margin:2px 0 0;color:var(--mu)}.top>div:nth-child(2){flex:1}.bk{display:none}
 .rt{display:flex;gap:14px;align-items:center}.dt{background:var(--cd);border:1px solid var(--br);border-radius:10px;padding:8px 12px}.us{display:flex;gap:8px;align-items:center}.us i{width:36px;height:36px;border-radius:50%;background:var(--pr);color:#fff;display:flex;align-items:center;justify-content:center;font-style:normal;font-weight:700}.us small{display:block;color:var(--mu);font-size:11px}
 main{padding:14px 24px 28px;max-width:1240px}
+.wg{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px;margin-top:6px}.wg small{display:block;font-size:11px;margin-top:2px;line-height:1.2}
 h2{margin:0 0 4px;font-size:22px}.mu{color:var(--mu)}
 .card{background:var(--cd);border:1px solid var(--br);border-radius:14px;padding:16px;margin-bottom:14px;box-shadow:0 1px 3px #0a2f7a0d}
 .g{display:grid;gap:14px}.g4{grid-template-columns:repeat(4,1fr)}.g2{grid-template-columns:1fr 1fr}.g3{grid-template-columns:repeat(3,1fr)}.g6{grid-template-columns:repeat(6,1fr)}.gw{grid-template-columns:1.5fr 1fr}.gt{grid-template-columns:1fr 1.15fr}
@@ -76,11 +77,15 @@ if(!j.ok){if(j.error==='AUTH'){SES=null;saveS();showLogin('Sesi berakhir, silaka
 const norm=d=>({users:d.users,acc:(d.accounts||[]).map(x=>({email:x.Email,nama:x.Nama,role:x.Role})),teams:d.teams,
 tools:d.tools.map(t=>({id:t.ID,name:t.Nama,cat:t.Kategori,st:t.Status,note:t.Catatan||'',pers:t.Personal===true,foto:t.FotoAwal||''})),
 tx:d.tx,notif:d.notif.map(n=>({t:n.Waktu,m:n.Pesan}))});
+let RF=0,TCH=0;
+async function refreshD(){const n=++RF;try{const d=norm(await api('getData'));if(n!==RF||!d.tools.length)return false;D=d;return true}catch(e){return false}}
+function softLoad(k){const y=scrollY;go(k);refreshD().then(ok=>{if(!ok||V!==k||k==='scan'||TCH||cart.length||stream||$('#md').style.display==='flex')return;go(k);scrollTo(0,y)})}
+document.addEventListener('input',()=>{TCH=1},true);document.addEventListener('change',()=>{TCH=1},true);
 async function load(keep){try{D=norm(await api('getData'));if(!D.tools.length)throw new Error('Data kosong. Jalankan setup() di Apps Script dulu.')}catch(e){if(!SES)return;$('#main').innerHTML=`<div class="card"><b>Gagal memuat data</b><p class="mu">${esc(e.message)}</p><button onclick="load()">Coba lagi</button></div>`;return}go(keep||V)}
 const NAV=[['dash','Dashboard','🏠'],['tools','Tools & Alat','🔧'],['scan','Scan','▦','fab'],['use','Penggunaan','📤','dk'],['ret','Pengembalian','📥','dk'],['team','Team','👥'],['rep','Laporan','📄']];
 const TT={dash:['Dashboard','Monitoring penggunaan tools network operation'],tools:['Tools & Alat','Status alat keselamatan dan daftar tools'],use:['Penggunaan Barang',''],ret:['Pengembalian Barang',''],team:['Team & Anggota',''],rep:['Laporan & Riwayat',''],scan:['Scan Barcode',''],home:['','']};
-function go(v){stopScan();V=v;document.body.classList.toggle('home',v==='home');
-$('#nav').innerHTML=`<div class="br"><div class="lg">🛠</div><div><b>KUMAT</b><small>Keluar Masuk Tools</small></div></div>`+NAV.map(([k,l,i,c])=>`<a class="${c||''} ${k===V?'on':''}" onclick="${['use','scan','ret'].includes(k)?`load('${k}')`:`go('${k}')`}"><i>${i}</i><span>${l}</span></a>`).join('')+`<div class="bz"><b>Biznet</b><small>Branch Campang Raya</small></div>`;
+function go(v){stopScan();V=v;TCH=0;document.body.classList.toggle('home',v==='home');
+$('#nav').innerHTML=`<div class="br"><div class="lg">🛠</div><div><b>KUMAT</b><small>Keluar Masuk Tools</small></div></div>`+NAV.map(([k,l,i,c])=>`<a class="${c||''} ${k===V?'on':''}" onclick="${['use','scan','ret'].includes(k)?`softLoad('${k}')`:`go('${k}')`}"><i>${i}</i><span>${l}</span></a>`).join('')+`<div class="bz"><b>Biznet</b><small>Branch Campang Raya</small></div>`;
 $('#top').className='top'+(v==='dash'?' d0':'');
 $('#top').innerHTML=`<div class="bk" onclick="go('dash')">‹</div><div><h2>${TT[v][0]}</h2><p class="sub">${TT[v][1]}</p></div><div class="rt"><span class="dt">📅 ${new Date().toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'})}</span><span class="us" onclick="menu()" style="cursor:pointer">${avE(SES.user.email)}<div><b>${esc(SES.user.nama)}</b><small>${isOwner()?'Owner · Super Admin':'User'}</small></div></span></div>`;
 $('#main').innerHTML=VIEWS[v]().replace(/^<h2>.*?<\/h2>/,'');if(v==='scan')startScan();scrollTo(0,0)}
@@ -92,7 +97,7 @@ const cg=Object.keys(ST).filter(k=>c(k)).map(k=>{const s=a;a+=c(k)/tot*100;retur
 const today=D.tx.filter(x=>new Date(x.start).toDateString()===new Date().toDateString()||!x.end).sort((a,b)=>b.start-a.start);
 const S=(ic,col,v,l,sb,k)=>`<div class="card stc" style="cursor:pointer" onclick="dd('${k}')"><div class="ic" style="background:${col}">${ic}</div><div><span class="mu">${l}</span><b>${v}</b><span class="mu">${sb}</span></div></div>`,IC=['🦺','⛑️','🧤','👓','🧗','🔗'];
 return`<div class="g g4" style="margin-bottom:14px">${S('🔧','#1a5fe0',tl.length+sf.length,'Total Tools',tl.length+' Tools | '+sf.length+' Keselamatan','all')}${S('👥','#2f80ed',A.length,'Team Aktif','dari '+D.teams.length+' team','team')}${S('✔','#16a34a',c('used'),'Sedang Digunakan','tools','used')}${S('⏱','#f59e0b',c('repair')+c('check')+c('broken'),'Perlu Perbaikan','tools','fix')}</div>
-<div style="display:flex;gap:8px;margin-bottom:14px"><button onclick="load('use')">📤 Gunakan Tools</button><button class="o" onclick="load('ret')">📥 Pengembalian</button></div>
+<div style="display:flex;gap:8px;margin-bottom:14px"><button onclick="softLoad('use')">📤 Gunakan Tools</button><button class="o" onclick="softLoad('ret')">📥 Pengembalian</button></div>
 <div class="g gw"><div class="card"><b>Status Alat Keselamatan</b><div class="g g6" style="margin-top:10px;gap:8px">${SAF.map(([k,n],i)=>{const I=D.tools.filter(t=>t.id.startsWith('KUM-'+k)),o=I.filter(t=>t.st!=='none').length,bad=I.filter(t=>['broken','check','repair'].includes(t.st)).length,col=o>=6&&!bad?'#16a34a':o===0?'#dc2626':'#f59e0b';return`<div class="sf" style="cursor:pointer" onclick="dd('saf:${k}')"><div class="si">${IC[i]}</div><span>${n}</span><b style="color:${col}">${o}/6</b><em style="color:${col}">${bad?bad+' bermasalah':o>=6?'(OK)':o?'(Kurang)':'(Belum ada)'}</em></div>`}).join('')}</div></div>
 <div class="card"><b>Ringkasan Tools</b><div style="display:flex;gap:16px;align-items:center;margin-top:10px"><div class="donut" style="background:conic-gradient(${cg})"><i>${tot}</i></div><div style="flex:1">${Object.keys(ST).filter(k=>c(k)).map(k=>`<div style="display:flex;justify-content:space-between;margin-bottom:4px;cursor:pointer" onclick="dd('st:${k}')"><span><span style="color:${ST[k][1]}">●</span> ${ST[k][0]}</span><b>${c(k)}</b></div>`).join('')}</div></div></div></div>
 ${D.notif.length?`<div class="card"><b>🔔 Notifikasi Branch Leader</b>${D.notif.slice(-3).reverse().map(n=>`<div class="row" style="cursor:default"><div>${esc(n.m)}<br><span class="mu">${fd(n.t)}</span></div></div>`).join('')}</div>`:''}
@@ -116,7 +121,7 @@ team(){const A=act();return`<h2>Team & Anggota</h2><div class="g g3">${teamsAll(
 <div class="card"><b>Anggota</b>${D.users.map(p=>{const x=A.find(a=>a.members.includes(p));return`<div class="row" style="cursor:default">${av(p,40)}<div>${esc(p)}</div>${x?`<span class="mu">${esc(x.team)}</span> <span class="pill" style="background:#2563eb">Aktif</span>`:'<span class="pill" style="background:#94a3b8">Belum mulai</span>'}</div>`}).join('')}</div>`},
 rep(){const R=D.tx.flatMap(x=>x.rets.map(r=>({...r,x}))),cnt={};D.tx.forEach(x=>x.tools.forEach(i=>cnt[i]=(cnt[i]||0)+1));
 const top=Object.entries(cnt).sort((a,b)=>b[1]-a[1]).slice(0,5),bad=R.filter(r=>!r.ok).pop(),avg=R.length?R.reduce((s,r)=>s+(r.t-r.x.start),0)/R.length/36e5:0;
-return`<h2>Laporan</h2><div class="g g2"><div class="card"><b>Siapa memakai tool ini (30 hari)?</b><select onchange="$('#r1').innerHTML=rep1(this.value)"><option value="">Pilih tool…</option>${D.tools.filter(t=>!t.pers).map(t=>`<option value="${t.id}">${esc(t.name)}</option>`).join('')}</select><div id="r1" class="mu" style="margin-top:8px"></div></div>
+return`<h2>Laporan</h2><div style="margin-bottom:14px"><button onclick="pdfModal()">📄 Export PDF</button></div><div class="g g2"><div class="card"><b>Siapa memakai tool ini (30 hari)?</b><select onchange="$('#r1').innerHTML=rep1(this.value)"><option value="">Pilih tool…</option>${D.tools.filter(t=>!t.pers).map(t=>`<option value="${t.id}">${esc(t.name)}</option>`).join('')}</select><div id="r1" class="mu" style="margin-top:8px"></div></div>
 <div class="card"><b>Tools siap digunakan hari ini</b><h2>${D.tools.filter(t=>t.st==='normal'&&!t.pers).length}</h2></div>
 <div class="card"><b>Tools paling sering digunakan</b><div style="margin-top:6px">${top.map(([i,n])=>`${esc(byId(i).name)}: ${n}×`).join('<br>')||'<span class="mu">Belum ada data</span>'}</div></div>
 <div class="card"><b>Tools di luar branch</b><div style="margin-top:6px">${D.tools.filter(t=>t.st==='loan').map(t=>esc(t.name)+' – '+esc(t.note)).join('<br>')||'<span class="mu">Tidak ada</span>'}</div></div>
@@ -132,22 +137,22 @@ modal(`<div style="display:flex;justify-content:space-between"><h2 style="font-s
 <p>${pill(t.st)} <span class="mu">${id}</span></p><p>${esc(t.note)||'<span class="mu">Tanpa catatan</span>'}</p><div id="qr" style="margin:8px 0"></div>
 ${isOwner()?'':'<!--'}<label>Ubah status (Branch Leader)</label><select onchange="setSt('${id}',this.value)" ${t.st==='used'?'disabled':''}>${Object.keys(ST).map(k=>`<option value="${k}" ${k===t.st?'selected':''}>${ST[k][0]}</option>`).join('')}</select>${isOwner()?'':'-->'}
 <label>Riwayat terakhir</label><div class="mu">${h.map(x=>`${fd(x.start)} · ${esc(x.team)} (${x.members.map(esc).join(', ')})`).join('<br>')||'Belum pernah digunakan'}</div>
-<div style="margin-top:12px">${t.st!=='used'&&!t.pers?`<button onclick="cart.includes('${id}')||cart.push('${id}');modal();go('use')">Gunakan</button>`:''} <button class="o" onclick="modal();go('rep')">Riwayat Penggunaan</button> ${isOwner()?`<button class="o" onclick="rpt('${id}')">Laporkan Kerusakan</button> <button class="o" onclick="labelModal('${id}')">🖨 Label</button> <button class="o" onclick="setFoto('${id}')">📷 Foto Awal</button>`:''}</div>`);
+<div style="margin-top:12px">${t.st!=='used'&&!t.pers?`<button onclick="cart.includes('${id}')||cart.push('${id}');modal();go('use')">Gunakan</button>`:''} <button class="o" onclick="modal();go('rep')">Riwayat Penggunaan</button> ${isOwner()?`<button class="o" onclick="rpt('${id}')">Laporkan Kerusakan</button> <button class="o" onclick="labelModal('${id}')">🖨 Label</button> <button class="o" onclick="setFoto('${id}')">📷 Foto Awal</button> <button class="o" style="color:#dc2626;border-color:#dc2626" onclick="delTool('${id}')">🗑 Hapus</button>`:''}</div>`);
 try{new QRCode($('#qr'),{text:id,width:110,height:110})}catch(e){}}
 async function run(btn,fn){if(busy)return;busy=true;if(btn)btn.disabled=true;try{return await fn()}catch(e){toast(e.message)}finally{busy=false;if(btn)btn.disabled=false}}
 function setSt(id,s){run(null,async()=>{const r=await api('setStatus',id,s);if(!r.ok)throw new Error(r.error);modal();toast(byId(id).name+' → '+ST[s][0]);await load()})}
 function addC(){const v=$('#sid').value.trim().toUpperCase();useScan(v);$('#sid').value=''}
 function useSave(){const mem=[...document.querySelectorAll('.mb:checked')].map(e=>e.value),team=$('#tm').value;
 if(!cart.length)return toast('Pilih minimal 1 tool');if(!mem.length||mem.length>6)return toast('Anggota harus 1–6 orang');
-const note=$('#nt').value,w=cart.filter(i=>byId(i).st!=='normal').map(i=>byId(i).name+' ('+ST[byId(i).st][0]+')');if(w.length&&!confirm('Alat berikut statusnya bukan Normal:\n'+w.join('\n')+'\n\nTetap digunakan?'))return;run($('#bu'),async()=>{const r=await api('useTools',{team,members:mem,toolIds:cart,note});if(!r.ok)throw new Error(r.error);cart=[];toast('Penggunaan tersimpan');await load('ret');shareUse(r.txId)})}
+const note=$('#nt').value,w=cart.filter(i=>byId(i).st!=='normal').map(i=>byId(i).name+' ('+ST[byId(i).st][0]+')');if(w.length&&!confirm('Alat berikut statusnya bukan Normal:\n'+w.join('\n')+'\n\nTetap digunakan?'))return;run($('#bu'),async()=>{const ids=[...cart],r=await api('useTools',{team,members:mem,toolIds:ids,note});if(!r.ok)throw new Error(r.error);D.tx.push({id:r.txId,team,members:mem,start:Date.now(),end:null,note,tools:ids,st0:ids.map(i=>byId(i).st),rets:[]});ids.forEach(i=>{byId(i).st='used'});cart=[];toast('Penggunaan tersimpan');go('ret');shareUse(r.txId);refreshD()})}
 function sharpen(c,a){const w=c.width,hh=c.height,x=c.getContext('2d'),s=x.getImageData(0,0,w,hh),o=x.createImageData(w,hh),S=s.data,O=o.data,k=1+4*a;for(let y=0;y<hh;y++)for(let X=0;X<w;X++){const p=(y*w+X)*4,e=y===0||X===0||y===hh-1||X===w-1;for(let ch=0;ch<3;ch++){const q=p+ch;O[q]=e?S[q]:S[q]*k-a*(S[q-4]+S[q+4]+S[q-w*4]+S[q+w*4])}O[p+3]=255}x.putImageData(o,0,0)}
-function shrink(f,cb){const r=new FileReader();r.onload=()=>{const i=new Image();i.onload=()=>{const s=Math.min(1,1600/Math.max(i.width,i.height)),c=document.createElement('canvas');c.width=Math.round(i.width*s);c.height=Math.round(i.height*s);const x=c.getContext('2d');x.imageSmoothingEnabled=true;x.imageSmoothingQuality='high';x.drawImage(i,0,0,c.width,c.height);try{if(s<1)sharpen(c,.35)}catch(e){}cb(c.toDataURL('image/jpeg',.9))};i.src=r.result};r.readAsDataURL(f)}
+function shrink(f,cb){const r=new FileReader();r.onload=()=>{const i=new Image();i.onload=()=>{const s=Math.min(1,1280/Math.max(i.width,i.height)),c=document.createElement('canvas');c.width=Math.round(i.width*s);c.height=Math.round(i.height*s);const x=c.getContext('2d');x.imageSmoothingEnabled=true;x.imageSmoothingQuality='high';x.drawImage(i,0,0,c.width,c.height);try{if(s<1)sharpen(c,.35)}catch(e){}cb(c.toDataURL('image/jpeg',.85))};i.src=r.result};r.readAsDataURL(f)}
 function retOpen(x,i){const t=byId(i);RP={x,i,img:''};modal(`<h2 style="font-size:18px">Pengembalian: ${esc(t.name)}</h2><div class="ba"><div><span class="mu">Kondisi awal</span>${ph2(bigOf(t),'Kondisi awal · '+t.name,imgOf(t))}</div><div><span class="mu">Kondisi kembali</span><div id="af" class="ph">Belum ada foto</div></div></div>
 <label>Foto kondisi saat kembali (wajib)</label><input type="file" accept="image/*" capture="environment" onchange="retPhoto(this.files[0])">
 <label>Checklist</label>${CHK.map(c=>`<label class="chk"><input type="checkbox" class="ck"> ${c}</label>`).join('')}
 <label>Catatan (opsional)</label><textarea id="rn" rows="2"></textarea><div style="margin-top:12px;display:flex;gap:8px"><button id="br" onclick="retSave()">Simpan Pengembalian</button><button class="o" onclick="modal()">Batal</button></div>`)}
 function retSave(){if(!RP.img)return toast('Foto kondisi kembali wajib diambil');const ck=[...document.querySelectorAll('.ck')].map(e=>e.checked),note=$('#rn').value;
-run($('#br'),async()=>{const r=await api('returnTool',{txId:RP.x,toolId:RP.i,checks:ck,note,photo:RP.img});if(!r.ok)throw new Error(r.error);const xid=RP.x,photo=RP.img;modal();toast(r.ok&&ck.every(Boolean)?'Pengembalian berhasil':'Tersimpan: Perlu Pemeriksaan, Branch Leader diberi notifikasi');await load('ret');shareRet(xid,photo)})}
+run($('#br'),async()=>{const xid=RP.x,tid=RP.i,photo=RP.img,r=await api('returnTool',{txId:xid,toolId:tid,checks:ck,note,photo});if(!r.ok)throw new Error(r.error);const x=D.tx.find(a=>a.id===xid),tl=byId(tid),ok=ck.every(Boolean),pr=(x.st0&&x.st0[x.tools.indexOf(tid)])||'normal',prior=pr!=='used'?pr:'normal';x.rets.push({id:tid,t:Date.now(),ok,note,chk:ck,before:tl.foto||'',after:r.photo});tl.st=prior!=='normal'?prior:(ok?'normal':'check');if(!ok&&note)tl.note=note;if(r.selesai)x.end=Date.now();const m=/[?&]id=([\w-]+)/.exec(r.photo||'');if(m){const pp=Promise.resolve(photo);pp.v=photo;PC[m[1]]=pp;TC[m[1]]=photo}modal();toast(ok?'Pengembalian berhasil':'Tersimpan: Perlu Pemeriksaan, Branch Leader diberi notifikasi');go('ret');shareRet(xid);refreshD()})}
 let stab='VST',stream,scanT;
 const rw=t=>`<div class="row" onclick="det('${t.id}')">${th(t)}<div><b>${esc(t.name)}</b> ${pill(t.st)}<br><span class="mu">${esc(t.note)}</span></div><span class="mu">›</span></div>`;
 const tlist=()=>D.tools.filter(t=>t.cat==='tool'&&(t.name+t.id).toLowerCase().includes(q.toLowerCase())).map(rw).join('')||'<span class="mu">Tidak ditemukan</span>';
@@ -219,7 +224,7 @@ const tn=s=>String(s==null?'':s).replace(/\s+/g,' ').trim().toLowerCase(),sameT=
 const teamsAll=()=>{const L=[...D.teams];act().forEach(a=>{if(!L.some(t=>sameT(t,a.team)))L.push(a.team)});return L};
 /* ===== Penampil foto (ikon mata) & Before/After ===== */
 const ph2=(src,t,fb)=>src?`<div class="pw2"><img src="${src}" data-t="${esc(t||'')}"${fb&&fb!==src?` data-fb="${fb}" onerror="this.onerror=null;this.src=this.dataset.fb"`:''}><button class="eye" title="Lihat foto" onclick="event.stopPropagation();pvEl(this)">👁</button></div>`:'<div class="ph">Tidak ada foto</div>';
-function pvEl(b){const i=b.parentElement.querySelector('img');if(!i)return;if(i.dataset.h&&!i.dataset.ok)return toast('Foto masih dimuat, coba lagi sebentar');pv(i.src,i.dataset.t)}
+function pvEl(b){const i=b.parentElement.querySelector('img');if(!i)return;if(i.dataset.h&&!i.dataset.ok)return toast('Foto masih dimuat, coba lagi sebentar');pv(i.src,i.dataset.t);if(i.dataset.id&&!i.dataset.full)fullPhoto(i.dataset.id).then(u=>{const p=$('#pv img');if(p&&$('#pv').style.display!=='none')p.src=u}).catch(()=>toast('Foto resolusi penuh gagal dimuat'))}
 function pv(src,t){let v=$('#pv');if(!v){v=document.createElement('div');v.id='pv';document.body.appendChild(v)}v.innerHTML=`<div class="pvh"><b>${esc(t||'Foto')}</b><button onclick="pvX()">✕ Tutup</button></div><div class="pvb"><img src="${src}" onclick="this.classList.toggle('z')"></div><div class="pvf">Ketuk foto untuk zoom · geser untuk melihat detail</div>`;v.style.display='flex'}
 function pvX(){const v=$('#pv');if(v)v.style.display='none'}
 document.addEventListener('keydown',e=>{if(e.key==='Escape')pvX()});
@@ -230,12 +235,23 @@ modal(`<div style="display:flex;justify-content:space-between"><h2 style="font-s
 <div class="ba"><div><span class="mu">Sebelum (kondisi awal)</span>${ph2(bf,t.name+' · Sebelum',imgOf(t))}</div><div><span class="mu">Sesudah (saat kembali)</span>${ph2(r.after,t.name+' · Sesudah')}</div></div>
 ${r.chk&&r.chk.length?`<label>Hasil checklist</label>${CHK.map((c,i)=>`<div class="chk">${r.chk[i]?'✅':'❌'} ${c}</div>`).join('')}`:''}
 ${r.note?`<label>Catatan</label><div>${esc(r.note)}</div>`:''}
-<div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap"><button style="background:#16a34a" onclick="waCmp('${xid}','${tid}')">📲 Bagikan WhatsApp</button><button class="o" onclick="modal()">Tutup</button></div>`)}
+<div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap"><button style="background:#16a34a" onclick="waCmp('${xid}','${tid}')">📲 Bagikan WhatsApp (semua alat team ini)</button><button class="o" onclick="modal()">Tutup</button></div>`)}
 /* ===== Foto Drive lewat script (tetap tampil walau sharing Drive dibatasi) ===== */
-const TRANSP='data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==',PC={};
-function hydrate(){document.querySelectorAll('img[src*="drive.google.com"]').forEach(im=>{const m=/[?&]id=([\w-]+)/.exec(im.src);if(!m||im.dataset.h)return;const id=m[1];im.dataset.h=1;im.src=TRANSP;
-if(!PC[id])PC[id]=api('getPhoto',id).then(r=>{if(!r||!r.data)throw new Error('x');return r.data});
-PC[id].then(u=>{im.src=u;im.dataset.ok=1}).catch(()=>{delete PC[id];const d=document.createElement('div');d.className='ph';d.style.cssText='font-size:11px;text-align:center';d.textContent='Foto gagal dimuat';im.replaceWith(d)})})}
+const TRANSP='data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==',PC={},TC={};
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+async function tryN(fn,n){let e;for(let i=0;i<n;i++){try{return await fn()}catch(x){e=x;if(e&&e.message==='Sesi berakhir')throw e;await sleep(700*(i+1))}}throw e}
+/* foto ukuran penuh (cache per id) */
+function fullPhoto(id){if(!PC[id])PC[id]=tryN(async()=>{const r=await api('getPhotos',[id],'full');if(!r||!r[id])throw new Error('x');return r[id]},3).catch(e=>{delete PC[id];throw e});return PC[id]}
+/* antrean miniatur: dikumpulkan lalu diambil per 6 foto, maks 3 permintaan paralel */
+let HQ=[],HT=0,HR=0;
+function hydrate(){document.querySelectorAll('img[src*="drive.google.com"]').forEach(im=>{const id=drvId(im.src);if(!id||im.dataset.h)return;im.dataset.h=1;im.dataset.id=id;im.dataset.src=im.src;im.src=TRANSP;
+if(PC[id]&&PC[id].v){setImg(im,PC[id].v,1);return}if(TC[id]){setImg(im,TC[id]);return}HQ.push({id,im});clearTimeout(HT);HT=setTimeout(pump,40)})}
+function setImg(im,u,full){im.src=u;im.dataset.ok=1;if(full)im.dataset.full=1;else if(im.closest('#md')&&im.closest('.pw2')){const id=im.dataset.id;fullPhoto(id).then(v=>{if(im.isConnected){im.src=v;im.dataset.full=1}}).catch(()=>{})}}
+function failImg(im){const d=document.createElement('div');d.className='ph';d.style.cssText='font-size:11px;text-align:center;cursor:pointer';d.innerHTML='Foto gagal dimuat<br><u>ketuk untuk ulangi</u>';d.onclick=()=>{const n=new Image();n.dataset.t=im.dataset.t||'';n.src=im.dataset.src;d.replaceWith(n)};im.replaceWith(d)}
+async function pump(){while(HR<3&&HQ.length){const ch=HQ.splice(0,6);HR++;doChunk(ch).finally(()=>{HR--;if(HQ.length)pump()})}}
+async function doChunk(ch,try_){try_=try_||0;const ids=[...new Set(ch.map(c=>c.id))];let res={};try{res=await api('getPhotos',ids,'thumb')||{}}catch(e){if(e&&e.message==='Sesi berakhir')return}
+const miss=[];ch.forEach(c=>{const u=res[c.id];if(u){TC[c.id]=u;if(c.im.isConnected)setImg(c.im,u)}else if(c.im.isConnected)miss.push(c)});
+if(miss.length){if(try_<2){await sleep(1200*(try_+1));return doChunk(miss,try_+1)}miss.forEach(c=>failImg(c.im))}}
 new MutationObserver(hydrate).observe(document.body,{childList:true,subtree:true});
 
 /* ===== Info dashboard (klik kartu) ===== */
@@ -257,14 +273,60 @@ const waHead=x=>`${x.team}\n${x.members.map(m=>'・ '+m).join('\n')}\n\n`;
 const waUse=x=>waHead(x)+`Alat yang digunakan:\n${x.tools.map((i,n)=>`${n+1}. ${byId(i).name} - ${ST[(x.st0&&x.st0[n])||'normal'][0]}`).join('\n')}\n\n${x.note?'Keperluan: '+x.note+'\n':''}Keluar Hari ${fdl(x.start)}`;
 function waRet(x,rets){const nl=[];rets.forEach(r=>{const n=byId(r.id).name,bad=(r.chk||[]).map((v,i)=>v?'':CHK[i]).filter(Boolean);if(bad.length)nl.push(n+' - belum terpenuhi: '+bad.join(', '));if(r.note)nl.push((rets.length>1?n+': ':'')+r.note)});if(!nl.length)nl.push('Kembali sesuai kondisi awal');
 return waHead(x)+`Alat yang dikembalikan:\n${rets.map((r,n)=>`${n+1}. ${byId(r.id).name} - ${stNow(r)}`).join('\n')}\n\nNote:\n${nl.map(l=>'・ '+l).join('\n')}`}
-let WP={photo:''};
-function shareModal(title,text,photo){WP={photo:photo||''};modal(`<div style="display:flex;justify-content:space-between"><h2 style="font-size:18px">${title}</h2><button class="o" onclick="modal()">✕</button></div><label>Pesan WhatsApp (bisa diedit)</label><textarea id="wt" rows="11">${esc(text)}</textarea>${photo?`<label>Foto terlampir</label>${ph2(photo,'Foto pengembalian')}<p class="mu">Di HP, foto dan pesan terkirim bersamaan. Di komputer, simpan foto lalu lampirkan manual di WhatsApp.</p>`:''}<div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap"><button style="background:#16a34a" onclick="waSend()">📲 Kirim ke WhatsApp</button><button class="o" onclick="waCopy()">📋 Salin</button>${photo?'<button class="o" onclick="waSave()">⬇ Simpan Foto</button>':''}<button class="o" onclick="modal()">Tutup</button></div>`)}
-async function waSend(){const text=$('#wt').value;if(WP.photo&&navigator.canShare){try{const b=await(await fetch(WP.photo)).blob(),f=new File([b],'foto.jpg',{type:b.type||'image/jpeg'});if(navigator.canShare({files:[f]})){await navigator.share({files:[f],text});return}}catch(e){if(e&&e.name==='AbortError')return}}window.open('https://wa.me/?text='+encodeURIComponent(text),'_blank')}
+let WP={photos:[],files:[]};
+const drvId=u=>{const m=/[?&]id=([\w-]+)/.exec(u||'');return m?m[1]:''};
+function photoData(src){if(!src)return Promise.resolve('');if(String(src).startsWith('data:'))return Promise.resolve(src);const id=drvId(src);if(!id)return Promise.resolve('');return fullPhoto(id).catch(()=>'')}
+function shareModal(title,text,photos){photos=(photos||[]).filter(p=>p&&p.src);const w=WP={photos,files:[]};modal(`<div style="display:flex;justify-content:space-between"><h2 style="font-size:18px">${title}</h2><button class="o" onclick="modal()">✕</button></div><label>Pesan WhatsApp (bisa diedit)</label><textarea id="wt" rows="11">${esc(text)}</textarea>${photos.length?`<label>Foto pengembalian terlampir (${photos.length} alat)</label><div class="wg">${photos.map(p=>`<div>${ph2(p.src,p.name)}<small class="mu">${esc(p.name)}</small></div>`).join('')}</div><p class="mu">Di HP, semua foto dan pesan terkirim sekaligus ke WhatsApp. Jika teks tidak ikut terkirim, tekan Salin lalu tempel. Di komputer, foto diunduh lalu lampirkan manual.</p>`:''}<div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap"><button id="wsb" style="background:#16a34a" onclick="waSend()" ${photos.length?'disabled':''}>${photos.length?'⏳ Memuat foto…':'📲 Kirim ke WhatsApp'}</button><button class="o" onclick="waCopy()">📋 Salin</button>${photos.length?'<button class="o" onclick="waSave()">⬇ Simpan Semua Foto</button>':''}<button class="o" onclick="modal()">Tutup</button></div>`);if(photos.length)prepWa(w)}
+async function prepWa(w){const fl=await Promise.all(w.photos.map(async p=>{try{const d=await photoData(p.src);if(!d)return null;const b=await(await fetch(d)).blob();return new File([b],String(p.name||'foto').replace(/[^\w-]+/g,'_')+'.jpg',{type:b.type||'image/jpeg'})}catch(e){return null}}));if(WP!==w)return;w.files=fl.filter(Boolean);const b=$('#wsb');if(b){b.disabled=false;b.textContent='📲 Kirim ke WhatsApp'+(w.files.length<w.photos.length?` (${w.files.length}/${w.photos.length} foto)`:'')}}
+async function waSend(){const text=$('#wt').value,fs=WP.files||[];if(fs.length&&navigator.canShare&&navigator.canShare({files:fs})){try{await navigator.share({files:fs,text});return}catch(e){if(e&&e.name==='AbortError')return}}if(fs.length){waSave();toast('Foto diunduh, lampirkan di WhatsApp')}window.open('https://wa.me/?text='+encodeURIComponent(text),'_blank')}
 async function waCopy(){const t=$('#wt');try{await navigator.clipboard.writeText(t.value)}catch(e){t.select();document.execCommand('copy')}toast('Pesan disalin')}
-function waSave(){const a=document.createElement('a');a.href=WP.photo;a.download='foto-kumat.jpg';document.body.appendChild(a);a.click();a.remove()}
+function waSave(){const fs=WP.files||[];if(!fs.length)return toast('Foto belum siap');fs.forEach((f,i)=>setTimeout(()=>{const a=document.createElement('a'),u=URL.createObjectURL(f);a.href=u;a.download=f.name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),4000)},i*350))}
 function shareUse(xid){const x=D.tx.find(a=>a.id===xid);if(x)shareModal('Penggunaan tersimpan ✅',waUse(x))}
-function shareRet(xid,photo){const x=D.tx.find(a=>a.id===xid);if(x)shareModal('Pengembalian tersimpan ✅',waRet(x,x.rets),photo)}
-function waCmp(xid,tid){const x=D.tx.find(a=>a.id===xid),r=x&&x.rets.find(a=>a.id===tid);if(!r)return;const im=[...$('#md').querySelectorAll('img')].find(i=>/Sesudah/.test(i.dataset.t||'')),ph=im&&(!im.dataset.h||im.dataset.ok)?im.src:'';shareModal('Bagikan ke WhatsApp',waRet(x,[r]),ph)}
+function shareRet(xid){const x=D.tx.find(a=>a.id===xid);if(x)shareModal('Pengembalian tersimpan ✅',waRet(x,x.rets),x.rets.map(r=>({src:r.after,name:byId(r.id).name})))}
+function waCmp(xid){shareRet(xid)}
+function delTool(id){const t=byId(id);if(t.st==='used')return toast(t.name+' sedang digunakan, selesaikan pengembalian dulu');if(!confirm('Hapus "'+t.name+'" ('+id+') secara permanen?\n\nRiwayat penggunaan tetap tersimpan.'))return;run(null,async()=>{const r=await api('deleteTool',id);if(!r.ok)throw new Error(r.error);D.tools=D.tools.filter(x=>x.id!==id);cart=cart.filter(x=>x!==id);modal();toast(t.name+' dihapus');go(V==='scan'?'tools':V);refreshD()})}
+
+/* ===== Export PDF laporan kondisi alat ===== */
+let PDFL=null;
+function loadPdfLib(){if(window.jspdf)return Promise.resolve();if(PDFL)return PDFL;return PDFL=new Promise((ok,no)=>{const e=document.createElement('script');e.src='https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';e.onload=ok;e.onerror=()=>{PDFL=null;no(new Error('Gagal memuat pustaka PDF, periksa koneksi internet'))};document.head.appendChild(e)})}
+function latestPhoto(id){let b=null;D.tx.forEach(x=>x.rets.forEach(r=>{if(r.id===id&&r.after&&(!b||r.t>b.t))b={src:r.after,t:r.t,team:x.team}}));return b}
+function pdfModal(){modal(`<div style="display:flex;justify-content:space-between"><h2 style="font-size:18px">Export Laporan PDF</h2><button class="o" onclick="modal()">✕</button></div><p class="mu">Berisi foto kondisi, status, dan catatan setiap alat keselamatan dan tools.</p><label class="chk"><input type="radio" name="pf" value="all" checked> Semua alat &amp; alat keselamatan</label><label class="chk"><input type="radio" name="pf" value="bad"> Hanya yang bermasalah (Perlu Pemeriksaan / Perbaikan / Rusak)</label><label class="chk"><input type="checkbox" id="pfp" checked> Sertakan foto kondisi (foto terakhir saat dikembalikan, atau foto awal)</label><p class="mu" id="pgs"></p><div style="display:flex;gap:8px"><button id="pgb" onclick="pdfExport()">⬇ Buat PDF</button><button class="o" onclick="modal()">Batal</button></div>`)}
+const pdfT=x=>String(x==null?'':x).replace(/[–—]/g,'-').replace(/[“”]/g,'"').replace(/[‘’]/g,"'").replace(/[^\x20-\xFF\n]/g,'');
+async function pdfImg(src){try{const d=await photoData(src);if(!d)return null;return await new Promise(ok=>{const i=new Image();i.onload=()=>{const s=Math.min(1,700/Math.max(i.width,i.height)),c=document.createElement('canvas');c.width=Math.max(1,Math.round(i.width*s));c.height=Math.max(1,Math.round(i.height*s));c.getContext('2d').drawImage(i,0,0,c.width,c.height);ok({u:c.toDataURL('image/jpeg',.72),w:c.width,h:c.height})};i.onerror=()=>ok(null);i.src=d})}catch(e){return null}}
+async function pdfExport(){const mode=document.querySelector('input[name=pf]:checked').value,withP=$('#pfp').checked,b=$('#pgb'),pg=$('#pgs');b.disabled=true;
+try{pg.textContent='Memuat pustaka PDF…';await loadPdfLib();
+const L=D.tools.filter(t=>t.st!=='none'&&(mode==='all'||['check','repair','broken'].includes(t.st))).sort((a,c)=>(a.cat===c.cat?0:a.cat==='safety'?-1:1)||a.id.localeCompare(c.id));
+if(!L.length){pg.textContent='Tidak ada alat yang cocok.';b.disabled=false;return}
+const info=L.map(t=>{const lp=latestPhoto(t.id);return{t,src:lp?lp.src:imgOf(t),cap:lp?'Foto saat dikembalikan '+fd(lp.t)+' ('+lp.team+')':(imgOf(t)?'Foto kondisi awal':''),img:null}});
+if(withP){let n=0,i=0;const w=async()=>{while(i<info.length){const k=info[i++];if(k.src)k.img=await pdfImg(k.src);pg.textContent='Memuat foto '+(++n)+' / '+info.length+'…'}};await Promise.all([w(),w(),w()])}
+pg.textContent='Menyusun PDF…';
+const {jsPDF}=window.jspdf,doc=new jsPDF({unit:'mm',format:'a4'}),W=210,H=297,M=12,RH=46,TW=W-2*M;let y=M;
+const hex=h=>[1,3,5].map(i=>parseInt(h.slice(i,i+2),16));
+doc.setFont('helvetica','bold');doc.setFontSize(16);doc.text('Laporan Kondisi Alat & Alat Keselamatan',M,y+5);
+doc.setFont('helvetica','normal');doc.setFontSize(10);doc.setTextColor(100);doc.text('KUMAT - Keluar Masuk Tools | Biznet Campang Raya',M,y+11);doc.text('Dicetak: '+new Date().toLocaleString('id-ID'),W-M,y+11,{align:'right'});
+const cnt={};L.forEach(t=>cnt[t.st]=(cnt[t.st]||0)+1);
+doc.setTextColor(30);doc.text(pdfT('Total '+L.length+' alat: '+Object.keys(cnt).map(k=>ST[k][0]+' '+cnt[k]).join(' | ')),M,y+17);y+=22;
+doc.setDrawColor(200);doc.line(M,y-2,W-M,y-2);
+let cat='';
+info.forEach(k=>{const t=k.t;
+if(t.cat!==cat){if(y+RH+10>H-14){doc.addPage();y=M}cat=t.cat;doc.setFont('helvetica','bold');doc.setFontSize(12);doc.setTextColor(10,47,122);doc.text(cat==='safety'?'ALAT KESELAMATAN':'TOOLS',M,y+4);y+=8}
+if(y+RH>H-14){doc.addPage();y=M}
+doc.setDrawColor(215);doc.setFillColor(250,251,253);doc.roundedRect(M,y,TW,RH-3,2,2,'FD');
+const bx=M+2,by=y+2,bw=54,bh=RH-7;
+if(k.img){const r=Math.min(bw/k.img.w,bh/k.img.h),iw=k.img.w*r,ih=k.img.h*r;try{doc.addImage(k.img.u,'JPEG',bx+(bw-iw)/2,by+(bh-ih)/2,iw,ih)}catch(e){}}
+else{doc.setFillColor(238,242,248);doc.rect(bx,by,bw,bh,'F');doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(120);doc.text(withP?'Tidak ada foto':'Foto tidak disertakan',bx+bw/2,by+bh/2,{align:'center'})}
+const tx=M+60,tw=TW-62;
+doc.setFont('helvetica','bold');doc.setFontSize(11);doc.setTextColor(15,23,42);doc.text(doc.splitTextToSize(pdfT(t.name),tw)[0],tx,y+7);
+doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(100);doc.text(pdfT(t.id+(t.pers?'  |  Personal':'')),tx,y+12);
+const c=hex(ST[t.st][1]);doc.setFont('helvetica','bold');doc.setFontSize(9);doc.setTextColor(c[0],c[1],c[2]);doc.text('Status: '+pdfT(ST[t.st][0]),tx,y+17.5);
+doc.setFont('helvetica','bold');doc.setFontSize(8);doc.setTextColor(60);doc.text('Catatan:',tx,y+22.5);
+doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(30);const nl=doc.splitTextToSize(pdfT(t.note)||'-',tw).slice(0,4);doc.text(nl,tx,y+27);
+if(k.cap){doc.setFontSize(7);doc.setTextColor(120);doc.text(doc.splitTextToSize(pdfT(k.cap),tw)[0],tx,y+RH-5)}
+y+=RH});
+const n=doc.getNumberOfPages();for(let i=1;i<=n;i++){doc.setPage(i);doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(130);doc.text('Halaman '+i+' / '+n,W/2,H-7,{align:'center'})}
+const d=new Date(),p2=x=>String(x).padStart(2,'0');doc.save('Laporan-KUMAT-'+d.getFullYear()+p2(d.getMonth()+1)+p2(d.getDate())+'.pdf');
+pg.textContent='PDF berhasil dibuat.';toast('PDF diunduh');setTimeout(()=>{if($('#pgs')===pg)modal()},900)}
+catch(e){pg.textContent='Gagal: '+(e&&e.message||e);b.disabled=false}}
 function rpt(id){const n=prompt('Jelaskan kerusakan / masalah:');if(n)run(null,async()=>{const r=await api('setStatus',id,'check',n);if(!r.ok)throw new Error(r.error);modal();toast('Dilaporkan: Perlu Pemeriksaan');await load()})}
 const av=(n,z=34)=>{const a=D.acc.find(x=>x.nama===n),p=a&&AV[a.email];return p?`<img class="av" style="width:${z}px;height:${z}px" src="${p}">`:`<i class="av" style="width:${z}px;height:${z}px;background:#64748b;font-size:${z/2.6}px">${esc(String(n).split(' ').map(w=>w[0]).slice(0,2).join(''))}</i>`};
 const avE=(e,z=36)=>AV[e]?`<img class="av" style="width:${z}px;height:${z}px" src="${AV[e]}">`:`<i class="av" style="width:${z}px;height:${z}px;background:#0b4fc4">${esc((SES.user.nama||'?')[0])}</i>`;
