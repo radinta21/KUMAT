@@ -76,7 +76,7 @@ async function api(fn,...a){let res,j;try{res=await fetch(API_URL,{method:'POST'
 try{j=await res.json()}catch(e){throw new Error('Respons server tidak valid. Pastikan Code.gs terbaru sudah dideploy (New version).')}
 if(!j.ok){if(j.error==='AUTH'){SES=null;saveS();showLogin('Sesi berakhir, silakan masuk lagi.');throw new Error('Sesi berakhir')}throw new Error(j.error)}return j.result}
 const norm=d=>({users:d.users,acc:(d.accounts||[]).map(x=>({email:x.Email,nama:x.Nama,role:x.Role})),teams:d.teams,
-tools:d.tools.map(t=>({id:t.ID,name:t.Nama,cat:t.Kategori,st:t.Status,note:t.Catatan||'',pers:t.Personal===true,foto:t.FotoAwal||'',loan:{by:t.Peminjam||'',br:t.BranchPeminjam||'',dt:t.TglSerahTerima||'',ph:t.FotoSerahTerima||'',who:t.DicatatOleh||''}})),
+tools:d.tools.map(t=>({id:t.ID,name:t.Nama,cat:t.Kategori,st:t.Status,note:t.Catatan||'',pers:t.Personal===true,foto:t.FotoAwal||''})),
 tx:d.tx,notif:d.notif.map(n=>({t:n.Waktu,m:n.Pesan}))});
 let RF=0,TCH=0;
 async function refreshD(){const n=++RF;try{const d=norm(await api('getData'));if(n!==RF||!d.tools.length)return false;D=d;return true}catch(e){return false}}
@@ -125,7 +125,7 @@ const top=Object.entries(cnt).sort((a,b)=>b[1]-a[1]).slice(0,5),bad=R.filter(r=>
 return`<h2>Laporan</h2><div style="margin-bottom:14px"><button onclick="pdfModal()">📄 Export PDF</button></div><div class="g g2"><div class="card"><b>Siapa memakai tool ini (30 hari)?</b><select onchange="$('#r1').innerHTML=rep1(this.value)"><option value="">Pilih tool…</option>${D.tools.filter(t=>!t.pers).map(t=>`<option value="${t.id}">${esc(t.name)}</option>`).join('')}</select><div id="r1" class="mu" style="margin-top:8px"></div></div>
 <div class="card"><b>Tools siap digunakan hari ini</b><h2>${D.tools.filter(t=>t.st==='normal'&&!t.pers).length}</h2></div>
 <div class="card"><b>Tools paling sering digunakan</b><div style="margin-top:6px">${top.map(([i,n])=>`${esc(byId(i).name)}: ${n}×`).join('<br>')||'<span class="mu">Belum ada data</span>'}</div></div>
-<div class="card"><b>Tools di luar branch</b><div style="margin-top:6px">${D.tools.filter(t=>t.st==='loan').map(t=>esc(t.name)+' – '+(t.loan&&t.loan.br?esc(t.loan.br)+(t.loan.by?' · '+esc(t.loan.by):'')+' · '+fdd(t.loan.dt):esc(t.note))).join('<br>')||'<span class="mu">Tidak ada</span>'}</div></div>
+<div class="card"><b>Tools di luar branch</b><div style="margin-top:6px">${D.tools.filter(t=>t.st==='loan').map(t=>esc(t.name)+' – '+esc(t.note)).join('<br>')||'<span class="mu">Tidak ada</span>'}</div></div>
 <div class="card"><b>Terakhir dikembalikan bermasalah</b><div style="margin-top:6px">${bad?`${esc(byId(bad.id).name)} oleh ${bad.x.members.map(esc).join(', ')} (${fd(bad.t)})`:'<span class="mu">Belum ada</span>'}</div></div>
 <div class="card"><b>Rata-rata durasi di tangan teknisi</b><h2>${avg?avg.toFixed(1)+' jam':'–'}</h2></div></div>
 <div class="card"><b>Riwayat Penggunaan</b>${R.sort((a,b)=>b.t-a.t).map(r=>`<div class="row" onclick="cmp('${r.x.id}','${r.id}')">${th(byId(r.id))}<div><b>${esc(byId(r.id).name)}</b><br><span class="mu">${esc(r.x.team)} · ${r.x.members.map(esc).join(', ')}<br>${fd(r.x.start)} → ${fd(r.t)}</span></div>${r.ok?'<span class="pill" style="background:#16a34a">Selesai</span>':'<span class="pill" style="background:#ca8a04">Perlu Pemeriksaan</span>'} <button class="o" style="padding:6px 10px" onclick="event.stopPropagation();cmp('${r.x.id}','${r.id}')">👁 Foto</button></div>`).join('')||'<span class="mu">Belum ada riwayat</span>'}</div>`}};
@@ -135,13 +135,13 @@ const rows=L=>L.map(t=>`<div class="row" onclick="det('${t.id}')">${th(t)}<div><
 function list(){$('#lst').innerHTML=rows(flt())}
 function det(id){const t=byId(id),h=D.tx.filter(x=>x.tools.includes(id)).sort((a,b)=>b.start-a.start).slice(0,3);
 modal(`<div style="display:flex;justify-content:space-between"><h2 style="font-size:18px">${esc(t.name)}</h2><button class="o" onclick="modal()">✕</button></div>${imgOf(t)?ph2(bigOf(t),'Kondisi awal · '+t.name,imgOf(t)):''}
-<p>${pill(t.st)} <span class="mu">${id}</span></p><p>${esc(t.note)||'<span class="mu">Tanpa catatan</span>'}</p>${loanBox(t)}<div id="qr" style="margin:8px 0"></div>
+<p>${pill(t.st)} <span class="mu">${id}</span></p><p>${esc(t.note)||'<span class="mu">Tanpa catatan</span>'}</p><div id="qr" style="margin:8px 0"></div>
 ${isOwner()?'':'<!--'}<label>Ubah status (Branch Leader)</label><select onchange="setSt('${id}',this.value)" ${t.st==='used'?'disabled':''}>${Object.keys(ST).map(k=>`<option value="${k}" ${k===t.st?'selected':''}>${ST[k][0]}</option>`).join('')}</select>${isOwner()?'':'-->'}
 <label>Riwayat terakhir</label><div class="mu">${h.map(x=>`${fd(x.start)} · ${esc(x.team)} (${x.members.map(esc).join(', ')})`).join('<br>')||'Belum pernah digunakan'}</div>
-<div style="margin-top:12px">${t.st!=='used'&&!t.pers?`<button onclick="cart.includes('${id}')||cart.push('${id}');modal();go('use')">Gunakan</button>`:''} <button class="o" onclick="modal();go('rep')">Riwayat Penggunaan</button> ${t.st!=='used'&&!t.pers&&t.st!=='loan'?`<button class="o" onclick="loanModal('${id}')">🤝 Dipinjam Branch Lain</button>`:''} ${isOwner()?`<button class="o" onclick="rpt('${id}')">Laporkan Kerusakan</button> <button class="o" onclick="labelModal('${id}')">🖨 Label</button> <button class="o" onclick="setFoto('${id}')">📷 Foto Awal</button> <button class="o" style="color:#dc2626;border-color:#dc2626" onclick="delTool('${id}')">🗑 Hapus</button>`:''}</div>`);
+<div style="margin-top:12px">${t.st!=='used'&&!t.pers?`<button onclick="cart.includes('${id}')||cart.push('${id}');modal();go('use')">Gunakan</button>`:''} <button class="o" onclick="modal();go('rep')">Riwayat Penggunaan</button> ${isOwner()?`<button class="o" onclick="rpt('${id}')">Laporkan Kerusakan</button> <button class="o" onclick="labelModal('${id}')">🖨 Label</button> <button class="o" onclick="setFoto('${id}')">📷 Foto Awal</button> <button class="o" style="color:#dc2626;border-color:#dc2626" onclick="delTool('${id}')">🗑 Hapus</button>`:''}</div>`);
 try{new QRCode($('#qr'),{text:id,width:110,height:110})}catch(e){}}
 async function run(btn,fn){if(busy)return;busy=true;if(btn)btn.disabled=true;try{return await fn()}catch(e){toast(e.message)}finally{busy=false;if(btn)btn.disabled=false}}
-function setSt(id,s){if(s==='loan')return loanModal(id);run(null,async()=>{const r=await api('setStatus',id,s);if(!r.ok)throw new Error(r.error);modal();toast(byId(id).name+' → '+ST[s][0]);await load()})}
+function setSt(id,s){run(null,async()=>{const r=await api('setStatus',id,s);if(!r.ok)throw new Error(r.error);modal();toast(byId(id).name+' → '+ST[s][0]);await load()})}
 function addC(){const v=$('#sid').value.trim().toUpperCase();useScan(v);$('#sid').value=''}
 function useSave(){const mem=[...document.querySelectorAll('.mb:checked')].map(e=>e.value),team=$('#tm').value;
 if(!cart.length)return toast('Pilih minimal 1 tool');if(!mem.length||mem.length>6)return toast('Anggota harus 1–6 orang');
@@ -209,10 +209,10 @@ function found(v){const id=String(v||'').trim().toUpperCase();if(!D.tools.find(t
 function scanInfo(id){const t=byId(id),H=D.tx.filter(a=>a.tools.includes(id)).sort((a,b)=>b.start-a.start),x=act().find(a=>a.tools.includes(id)&&!a.rets.find(r=>r.id===id)),bad=H.filter(a=>{const r=a.rets.find(q=>q.id===id);return r&&!r.ok}).length;
 const rows=H.slice(0,6).map(a=>{const r=a.rets.find(q=>q.id===id);return`<div class="row" ${r?`onclick="cmp('${a.id}','${id}')"`:''}><div style="flex:1"><b>${esc(a.team)}</b> <span class="mu">${a.members.map(esc).join(', ')}</span><br><span class="mu">${fd(a.start)}${r?' → '+fd(r.t):''}</span></div>${r?(r.ok?pill('normal'):pill('check')):'<span class="pill" style="background:#2563eb">Berjalan</span>'}${r?'<span class="mu">👁</span>':''}</div>`}).join('')||'<span class="mu">Belum pernah digunakan</span>';
 modal(`<div style="display:flex;justify-content:space-between"><h2 style="font-size:18px">${esc(t.name)}</h2><button class="o" onclick="modal();startScan()">✕</button></div>${imgOf(t)?ph2(bigOf(t),'Kondisi awal · '+t.name,imgOf(t)):''}
-<p>${pill(t.st)} <span class="mu">${id}</span></p>${t.note?`<p>${esc(t.note)}</p>`:''}${loanBox(t)}
+<p>${pill(t.st)} <span class="mu">${id}</span></p>${t.note?`<p>${esc(t.note)}</p>`:''}
 ${x?`<div class="card" style="margin:8px 0;box-shadow:none;border:1px solid var(--br)"><b>Sedang digunakan</b><br>${esc(x.team)} · ${x.members.map(esc).join(', ')}<br><span class="mu">Sejak ${fd(x.start)}${x.note?' · '+esc(x.note):''}</span></div>`:''}
 <label>Riwayat penggunaan <span class="mu">(${H.length}× dipakai${bad?', '+bad+'× bermasalah':''})</span></label><div style="max-height:34vh;overflow:auto">${rows}</div>
-<div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">${x?`<button style="background:#16a34a" onclick="retOpen('${x.id}','${id}')">📥 Kembalikan</button>`:(!t.pers?`<button onclick="scanUse('${id}')">📤 Gunakan</button>`:'')}${!x&&!t.pers&&t.st!=='loan'?`<button class="o" onclick="loanModal('${id}')">🤝 Dipinjam Branch Lain</button>`:''}<button class="o" onclick="det('${id}')">Detail</button><button class="o" onclick="modal();startScan()">📷 Scan Lagi</button></div>`)}
+<div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">${x?`<button style="background:#16a34a" onclick="retOpen('${x.id}','${id}')">📥 Kembalikan</button>`:(!t.pers?`<button onclick="scanUse('${id}')">📤 Gunakan</button>`:'')}<button class="o" onclick="det('${id}')">Detail</button><button class="o" onclick="modal();startScan()">📷 Scan Lagi</button></div>`)}
 function scanUse(id){if(!cart.includes(id))cart.push(id);modal();toast(byId(id).name+' ditambahkan ke penggunaan');go('use')}
 
 /* --- Mode 2: scan di halaman Penggunaan (terus-menerus, tiap scan menambah alat) --- */
@@ -222,32 +222,9 @@ function useCam(){const h=$('#cph');if(h.innerHTML)return camClose();h.innerHTML
 /* --- Mode 3: scan di halaman Pengembalian (langsung buka form pengembalian alat tsb) --- */
 function retFind(v){const id=String(v||'').trim().toUpperCase(),t=D.tools.find(x=>x.id===id);if(!t)return toast('ID tidak ditemukan: '+id);const x=act().find(a=>a.tools.includes(id)&&!a.rets.find(r=>r.id===id));if(!x)return toast(t.name+' tidak sedang digunakan');camClose();retOpen(x.id,id)}
 function retCam(){const h=$('#rph');if(h.innerHTML)return camClose();h.innerHTML=camHtml('cam3');camStart('cam3',retFind)}
-/* ===== Peminjaman ke branch lain (status Dipinjam) ===== */
-let LP={img:''};
-const fdd=t=>t?new Date(t).toLocaleDateString('id-ID',{day:'2-digit',month:'long',year:'numeric'}):'-';
-const ymd=t=>{const d=t?new Date(t):new Date(),p=n=>String(n).padStart(2,'0');return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())};
-function loanBox(t){if(t.st!=='loan')return'';const L=t.loan||{},bx='margin:8px 0;box-shadow:none;border:1px solid var(--br)';
-if(!L.by&&!L.br)return`<div class="card" style="${bx}"><b>Dipinjam</b><br><span class="mu">Data peminjam belum diisi.</span><div style="margin-top:8px"><button onclick="loanModal('${t.id}')">📝 Isi data peminjaman</button></div></div>`;
-return`<div class="card" style="${bx}"><b>Data Peminjaman</b><div style="margin:6px 0"><span class="mu">Peminjam:</span> <b>${esc(L.by)}</b><br><span class="mu">Branch:</span> <b>${esc(L.br)}</b><br><span class="mu">Tanggal serah terima:</span> <b>${fdd(L.dt)}</b>${L.who?`<br><span class="mu">Dicatat oleh:</span> ${esc(L.who)}`:''}</div>${L.ph?`<span class="mu">Foto serah terima</span>${ph2(L.ph,'Serah terima · '+t.name)}`:'<span class="mu">Foto serah terima belum ada</span>'}<div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap"><button class="o" onclick="shareLoan('${t.id}')">📲 Bagikan WhatsApp</button><button class="o" onclick="loanModal('${t.id}')">✏️ Ubah</button>${isOwner()?`<button class="o" onclick="loanBack('${t.id}')">✅ Sudah Dikembalikan</button>`:''}</div></div>`}
-function loanModal(id){const t=byId(id),L=t.loan||{};LP={img:''};const brs=[...new Set(D.tools.map(x=>x.loan&&x.loan.br).filter(Boolean))];
-modal(`<div style="display:flex;justify-content:space-between"><h2 style="font-size:18px">Peminjaman: ${esc(t.name)}</h2><button class="o" onclick="det('${id}')">✕</button></div>
-<label>Nama peminjam</label><input id="lbn" value="${esc(L.by)}" placeholder="mis. Budi Santoso">
-<label>Branch peminjam</label><input id="lbr" list="lbl" value="${esc(L.br)}" placeholder="mis. Bandar Lampung"><datalist id="lbl">${brs.map(b=>`<option value="${esc(b)}">`).join('')}</datalist>
-<label>Tanggal serah terima</label><input id="lbd" type="date" value="${ymd(L.dt)}">
-<label>Foto serah terima ${L.ph?'(kosongkan bila tidak diganti)':'(wajib)'}</label><input type="file" accept="image/*" capture="environment" onchange="loanPhoto(this.files[0])"><div id="lbi">${L.ph?`<div style="margin-top:6px">${ph2(L.ph,'Serah terima · '+t.name)}</div>`:''}</div>
-<label>Catatan (opsional)</label><input id="lbt" placeholder="mis. untuk proyek di cabang peminjam">
-<div style="margin-top:12px;display:flex;gap:8px"><button id="lbb" onclick="loanSave('${id}')">Simpan Peminjaman</button><button class="o" onclick="det('${id}')">Batal</button></div>`)}
-function loanPhoto(f){if(!f)return;shrink(f,d=>{LP.img=d;$('#lbi').innerHTML=`<div style="margin-top:6px">${ph2(d,'Foto serah terima')}</div>`})}
-function loanSave(id){const t=byId(id),by=$('#lbn').value.trim(),br=$('#lbr').value.trim(),dt=$('#lbd').value,note=$('#lbt').value.trim();
-if(!by)return toast('Nama peminjam wajib diisi');if(!br)return toast('Branch peminjam wajib diisi');if(!dt)return toast('Tanggal serah terima wajib diisi');
-if(!LP.img&&!(t.loan&&t.loan.ph))return toast('Foto serah terima wajib diambil');
-run($('#lbb'),async()=>{const r=await api('setLoan',id,{peminjam:by,branch:br,tanggal:dt,note,photo:LP.img});if(!r.ok)throw new Error(r.error);toast(t.name+' → Dipinjam '+br);await load();det(id)})}
-function loanBack(id){const t=byId(id);if(!confirm(t.name+' sudah dikembalikan'+(t.loan&&t.loan.br?' oleh '+t.loan.br:'')+'?\n\nStatus menjadi Normal dan data peminjaman dikosongkan.'))return;setSt(id,'normal')}
-function shareLoan(id){const t=byId(id),L=t.loan||{};shareModal('Serah terima peminjaman',`Peminjaman Alat\n\nAlat: ${t.name} (${id})\nPeminjam: ${L.by}\nBranch: ${L.br}\nTanggal serah terima: ${fdd(L.dt)}`+(t.note&&!/^Dipinjam oleh /.test(t.note)?`\nCatatan: ${t.note}`:''),[{src:L.ph,name:t.name+' - serah terima'}])}
 /* ===== Tambah Alat (Owner / Super Admin) ===== */
 let AT={img:''};
-const DEFP={safety:{VST:'Vest',HLM:'Helm',GLV:'Sarung Tangan',KCM:'Kacamata',HRN:'Body Harness',BLT:'Safety Belt'},tool:{}};
-const pfxList=c=>{const m={};D.tools.filter(t=>t.cat===c).forEach(t=>{const r=/^KUM-([A-Z0-9]+)-\d+$/.exec(t.id);if(r&&!m[r[1]])m[r[1]]=t.name});Object.keys(DEFP[c]||{}).forEach(p=>{if(!m[p])m[p]=DEFP[c][p]});return Object.keys(m).map(p=>[p,m[p]])};
+const pfxList=c=>{const m={};D.tools.filter(t=>t.cat===c).forEach(t=>{const r=/^KUM-([A-Z0-9]+)-\d+$/.exec(t.id);if(r&&!m[r[1]])m[r[1]]=t.name});return Object.keys(m).map(p=>[p,m[p]])};
 const nextId=p=>{let n=0;const re=new RegExp('^KUM-'+p+'-(\\d+)$');D.tools.forEach(t=>{const r=re.exec(t.id);if(r)n=Math.max(n,+r[1])});return'KUM-'+p+'-'+('00'+(n+1)).slice(-3)};
 function addToolModal(){if(!isOwner())return;AT={img:''};modal(`<div style="display:flex;justify-content:space-between"><h2 style="font-size:18px">Tambah Alat Baru</h2><button class="o" onclick="modal()">✕</button></div>
 <label>Nama alat</label><input id="an" placeholder="mis. DEVISER OTDR AE3100B">
